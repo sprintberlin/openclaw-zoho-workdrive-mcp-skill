@@ -43,11 +43,15 @@ getFolderFiles -> uploadFile / uploadNewVersion -> getFileOrFolderDetails
 ```
 
 1. Confirm the destination folder ID with `getFolderFiles` or `getFileOrFolderDetails`.
-2. Upload a new file with `uploadFile`. Track a stream upload with `uploadStatus` when the server returns an upload ID.
-3. For an existing file, use `uploadNewVersion` rather than creating a duplicate.
-4. Read the resource back with `getFileOrFolderDetails` and `getVersion`.
+2. Move the bytes with [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge), not with an MCP upload Action.
+3. For an existing file, upload a new version rather than creating a duplicate.
+4. Read the resource back with `getFileOrFolderDetails` and `getVersion`, and re-list the folder with `getFolderFiles`.
 
-Generic Zoho MCP uploads are not always reliable for binary files. If an upload fails, use the live schema from `mcporter list` and retry with the documented payload. Do not fall back to another customer's WorkDrive endpoint.
+**Zoho MCP cannot upload binary files.** `uploadFile` and `uploadNewVersion` declare a `format: "binary"` parameter, but the MCP server never builds a `multipart/form-data` request, so the bytes are dropped while the call still reports success. Zoho narrowed both tool descriptions to "text-format file only" for the same reason.
+
+Treat an empty file response as a failure, never a success, and never claim an upload worked without re-listing the folder. The attachment bridge performs a real REST `multipart/form-data` upload with SHA-256 read-back verification. Its WorkDrive adapter is tracked in [issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9); until it ships, resolve the folder here and perform a verified direct REST upload. Do not fall back to another customer's WorkDrive endpoint.
+
+`createNewFile`, `createNativeDocument`, and `importToNative` create or convert Zoho-native documents server-side without transferring local bytes, so they work over MCP as documented.
 
 ## 5. Create, rename, move, or trash a resource
 

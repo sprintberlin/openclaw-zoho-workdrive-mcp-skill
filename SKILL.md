@@ -14,6 +14,7 @@ Source: [sprintberlin/openclaw-zoho-workdrive-mcp-skill](https://github.com/spri
 - A Zoho WorkDrive MCP endpoint from `mcp.zoho.eu`
 - `mcporter`
 - Endpoint configuration via `ZOHO_WORKDRIVE_MCP_URL`, `--profile`, or `--mcp-url`
+- For binary file uploads: [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge). MCP cannot upload bytes. See [Binary file uploads](#binary-file-uploads).
 
 Treat the endpoint as a credential. Never print it, commit it, or copy it into tickets, prompts, or chats.
 
@@ -60,6 +61,28 @@ Resolution order is `--mcp-url`, selected profile, then the environment fallback
 4. Read before writing. Inspect a resource with `getFileOrFolderDetails` and reconstruct its location with `breadcrumbsOfFile`.
 5. For writes, send only intended fields and read the affected resource back immediately.
 6. Keep permanent deletes, trash empties, and team-member removal disabled unless the task explicitly requires them.
+7. For anything that moves file bytes, use the attachment bridge instead of an MCP upload Action.
+
+## Binary file uploads
+
+Zoho MCP cannot upload binary files. `uploadFile` and `uploadNewVersion` declare a `format: "binary"` parameter, but the Zoho MCP server never builds a `multipart/form-data` request, so the bytes are dropped. The call usually still reports success, which makes a trusting agent claim a file was uploaded while the folder stays empty.
+
+**Treat an empty attachment or file array as a failure, never a success.** Never claim an upload succeeded without reading the resource back.
+
+The companion skill [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) exists for exactly this gap. It performs real `multipart/form-data` uploads against the Zoho REST API with Self Client OAuth and verifies every upload by SHA-256 read-back.
+
+Division of labour:
+
+| Task | Use |
+|---|---|
+| Browse, search, inspect, share, comment, manage folders | this skill (MCP) |
+| Resolve the destination folder or file ID before an upload | this skill (MCP) |
+| Transfer file bytes into WorkDrive | zoho-attachment-bridge |
+| Confirm the uploaded file is really there | zoho-attachment-bridge read-back, then re-list with `getFolderFiles` |
+
+Status: the bridge ships verified adapters for Books and CRM. Its WorkDrive adapter (file upload and new version) is planned in release 0.4.0, tracked in [issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9). Until that adapter lands, do not promise a working WorkDrive upload. Resolve the target folder through MCP, then either wait for the adapter or perform a direct REST `multipart/form-data` upload and verify it by re-listing the folder.
+
+`createNewFile`, `createNativeDocument`, and `importToNative` create or convert Zoho-native documents server-side and do not transfer local bytes, so they are unaffected by this limitation.
 
 ## Common calls
 
@@ -124,17 +147,9 @@ python3 scripts/search_files.py "contract" --team-id 123456789
 python3 scripts/list_share_links.py abc123
 ```
 
-Supported options:
+Every helper accepts `--mcp-url`, `--profile`, `--profiles-file`, `--json`, and `--timeout`. List helpers add `--limit`, `--page-size`, and `--full`. Run any helper with `--help` for its exact options, without configuring credentials. Unknown or incomplete options exit with status 2.
 
-- `list_teams.py`: `--user-id`, `--full`, `--json`, `--timeout`
-- `list_team_folders.py`: `--team-id` (required), `--limit`, `--page-size`, `--full`, `--json`, `--timeout`
-- `list_folder_files.py`: positional `folder_id`, `--limit`, `--page-size`, `--full`, `--json`, `--timeout`
-- `inspect_resource.py`: positional `resource_id`, `--share-links`, `--breadcrumbs`, `--json`, `--timeout`
-- `search_files.py`: positional `query`, `--team-id`, `--limit`, `--page-size`, `--full`, `--json`, `--timeout`
-- `list_share_links.py`: positional `resource_id`, `--full`, `--json`, `--timeout`
-- All helpers: `--mcp-url`, `--profile`, `--profiles-file`
-
-Run any helper with `--help` without configuring credentials. Unknown or incomplete options must exit with status 2.
+No helper uploads files. Uploads belong to the attachment bridge.
 
 ## Role profiles and the 300-Action limit
 
@@ -146,11 +161,11 @@ A Zoho MCP server accepts at most 300 selected Actions per connection. The entir
 | `content-collaborator` (inherits `file-browser`) | 110 | yes |
 | `workdrive-admin` (inherits `content-collaborator`) | 167 | yes |
 
-- **`file-browser`** (71): Read-only navigation. Teams, team folders, My Folders, folder contents, file metadata, previews, versions, comments, labels, shared links, collaborators, search, and downloads. No create, update, share, or delete Actions.
-- **`content-collaborator`** (110 resolved): Inherits `file-browser` and adds daily document work: upload and versioning, folder and native document creation, rename/move/copy, trash and restore, comments, labels, favorites, and internal or external sharing.
-- **`workdrive-admin`** (167 resolved): Inherits `content-collaborator` and adds team folder, team user, group, data template, template library, collection, and workflow administration. Explicitly denies permanent deletes, trash purges, and team-member removal.
+- **`file-browser`** (71): Read-only navigation, inspection, search, and downloads. No create, update, share, or delete Actions.
+- **`content-collaborator`** (110 resolved): Inherits `file-browser` and adds folder and native document creation, rename/move/copy, trash and restore, comments, labels, favorites, and internal or external sharing.
+- **`workdrive-admin`** (167 resolved): Inherits `content-collaborator` and adds team folder, team user, group, data template, template library, collection, and workflow administration. Denies permanent deletes, trash purges, and team-member removal.
 
-If a task needs an Action outside a profile, add it deliberately from a task recipe rather than enabling a whole module.
+If a task needs an Action outside a profile, add it deliberately from a task recipe rather than enabling a whole module. The upload Actions are included in the collaborator profile for completeness, but they do not transfer bytes; see [Binary file uploads](#binary-file-uploads).
 
 ## References
 
@@ -160,6 +175,7 @@ If a task needs an Action outside a profile, add it deliberately from a task rec
 - [Action profiles overview](references/ACTION_PROFILES.md): human-readable summary of the configured profiles and tasks
 - [Common workflows](references/COMMON_WORKFLOWS.md): verified step-by-step procedures for frequent WorkDrive tasks
 - [Multi-account profiles](references/MULTI_ACCOUNT.md): portable endpoint selection for one or many Zoho accounts
+- [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge): companion skill for verified binary uploads that MCP cannot perform
 
 Query the catalog with `scripts/lookup_actions.py` instead of loading `actions.jsonl` into context. Load workflows when executing a covered task.
 
@@ -168,5 +184,6 @@ Query the catalog with `scripts/lookup_actions.py` instead of loading `actions.j
 - **No endpoint configured**: set `ZOHO_WORKDRIVE_MCP_URL`, use `--profile`, or pass `--mcp-url`; never print the value.
 - **Profile not found or wrong app**: verify `--profiles-file`, the profile name, and its `services.workdrive` entry.
 - **Unknown resource ID**: resolve teams, folders, and files through lookup tools; do not guess IDs from paths or file names.
+- **Upload reported success but the file is missing**: expected. MCP does not transfer bytes; use [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) and verify by re-listing the folder.
 - **OAuth scope error**: reconnect the affected MCP connection with the required scope; never switch to another customer's endpoint.
 - Zoho WorkDrive contains customer documents and personal data. Load only required records and never copy contents into chats, logs, or repositories.

@@ -11,6 +11,7 @@ This repository contains the public source for the ClawHub skill [`@sprintcx/zoh
 - Ready-to-use Python helpers for teams, team folders, folder contents, file inspection, search, and share links
 - A JSON Action catalog with three least-privilege profiles: **file-browser**, **content-collaborator**, and **workdrive-admin**
 - Security-conscious `mcporter` calls through `subprocess.run([...])` without shell expansion
+- Explicit pairing with [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) for binary file uploads (MCP cannot upload bytes)
 
 ## Requirements
 
@@ -19,6 +20,7 @@ This repository contains the public source for the ClawHub skill [`@sprintcx/zoh
 | Zoho WorkDrive MCP Server | A configured endpoint from [mcp.zoho.eu](https://mcp.zoho.eu) |
 | mcporter | MCP client CLI (bundled with OpenClaw; elsewhere `npm i -g mcporter`) |
 | Endpoint selection | `ZOHO_WORKDRIVE_MCP_URL` for one account; named profiles or `--mcp-url` for multiple accounts |
+| Binary file uploads | [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) — MCP upload actions drop binary bytes; see [Binary file uploads](#binary-file-uploads) |
 
 ### Single-account setup
 
@@ -250,6 +252,30 @@ The MCP connection token may have expired or may not include the required scope.
 ### Unknown resource ID
 
 WorkDrive resource IDs are opaque. Resolve teams, folders, and files through lookup tools before writing. Never invent an ID from a path or file name.
+
+### Upload reported success but the file is missing
+
+This is the classic Zoho MCP silent failure. Zoho MCP upload actions (`uploadFile`, `uploadNewVersion`) declare `format: "binary"` but drop the bytes because the server builds no `multipart/form-data` request. Use [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) and verify by re-listing the folder.
+
+## Binary file uploads
+
+Zoho MCP is great for records, navigation, search, sharing, and metadata. **It cannot upload binary files.**
+
+When an agent calls `uploadFile` or `uploadNewVersion` over MCP, the MCP server usually returns `"status": "success"` while the folder remains empty. An agent that trusts that response will falsely claim the file was uploaded.
+
+**Rule: an empty file or attachment response is a failure, never a success.** Always re-list the folder to verify.
+
+Use the companion skill [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) to move bytes:
+
+| Step | Responsible skill |
+|---|---|
+| 1. Find the destination team folder or folder ID | `zoho-workdrive-mcp` (this skill) |
+| 2. Upload the local file via REST `multipart/form-data` with SHA-256 read-back | `zoho-attachment-bridge` |
+| 3. Read metadata, create share links, or set labels on the uploaded file | `zoho-workdrive-mcp` (this skill) |
+
+WorkDrive support in the bridge is tracked in [issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9). Until that adapter is released, resolve the destination folder via MCP, then use direct REST `multipart/form-data` and verify by re-listing with `list_folder_files.py`.
+
+Native document creation tools (`createNewFile`, `createNativeDocument`, `importToNative`) create or convert Zoho Writer/Sheet/Show documents entirely on the server and do not transfer local bytes, so they work over MCP as expected.
 
 ## Repository Files
 

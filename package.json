@@ -1,0 +1,7 @@
+{
+  "name": "zoho-workdrive-mcp",
+  "version": "1.0.0",
+  "description": "Connect your agent to Zoho WorkDrive via MCP. Browse teams and folders, inspect files, search, and query the WorkDrive action catalog using mcporter.",
+  "author": "SprintCX",
+  "license": "MIT"
+}

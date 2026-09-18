@@ -49,7 +49,14 @@ getFolderFiles -> uploadFile / uploadNewVersion -> getFileOrFolderDetails
 
 **Zoho MCP cannot upload binary files.** `uploadFile` and `uploadNewVersion` declare a `format: "binary"` parameter, but the MCP server never builds a `multipart/form-data` request, so the bytes are dropped while the call still reports success. Zoho narrowed both tool descriptions to "text-format file only" for the same reason.
 
-Treat an empty file response as a failure, never a success, and never claim an upload worked without re-listing the folder. The attachment bridge performs a real REST `multipart/form-data` upload with SHA-256 read-back verification. Its WorkDrive adapter is tracked in [issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9); until it ships, resolve the folder here and perform a verified direct REST upload. Do not fall back to another customer's WorkDrive endpoint.
+Treat an empty file response as a failure, never a success, and never claim an upload worked without re-listing the folder. The attachment bridge performs a real REST `multipart/form-data` upload with SHA-256 read-back verification. Its WorkDrive adapter shipped in release 0.4.0 ([issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9)):
+
+```bash
+python3 scripts/zoho_attach.py --app workdrive --target file-upload --id <folder_id> --file <path>
+python3 scripts/zoho_attach.py --app workdrive --target new-version --id <folder_id> --filename <existing_name> --file <path>
+```
+
+Use `new-version` instead of a second `file-upload` when the file already exists, so WorkDrive stores a version rather than a timestamped duplicate. Do not fall back to another customer's WorkDrive endpoint.
 
 `createNewFile`, `createNativeDocument`, and `importToNative` create or convert Zoho-native documents server-side without transferring local bytes, so they work over MCP as documented.
 

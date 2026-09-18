@@ -273,7 +273,14 @@ Use the companion skill [zoho-attachment-bridge](https://github.com/sprintberlin
 | 2. Upload the local file via REST `multipart/form-data` with SHA-256 read-back | `zoho-attachment-bridge` |
 | 3. Read metadata, create share links, or set labels on the uploaded file | `zoho-workdrive-mcp` (this skill) |
 
-WorkDrive support in the bridge is tracked in [issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9). Until that adapter is released, resolve the destination folder via MCP, then use direct REST `multipart/form-data` and verify by re-listing with `list_folder_files.py`.
+WorkDrive support landed in bridge release 0.4.0 ([issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9)):
+
+```bash
+python3 scripts/zoho_attach.py --app workdrive --target file-upload --id <folder_id> --file <path>
+python3 scripts/zoho_attach.py --app workdrive --target new-version --id <folder_id> --filename <existing_name> --file <path>
+```
+
+The bridge posts a real `multipart/form-data` request to `POST /workdrive/api/v1/upload` with the binary field `content` (max 250 MB), then downloads the file again from the dedicated WorkDrive download host and compares SHA-256 before exiting `0`. A new version is the same endpoint with `override-name-exist=true`. The bridge's Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ`. Confirm the result afterwards by re-listing the folder with `list_folder_files.py`.
 
 Native document creation tools (`createNewFile`, `createNativeDocument`, `importToNative`) create or convert Zoho Writer/Sheet/Show documents entirely on the server and do not transfer local bytes, so they work over MCP as expected.
 

@@ -80,7 +80,19 @@ Division of labour:
 | Transfer file bytes into WorkDrive | zoho-attachment-bridge |
 | Confirm the uploaded file is really there | zoho-attachment-bridge read-back, then re-list with `getFolderFiles` |
 
-Status: the bridge ships verified adapters for Books and CRM. Its WorkDrive adapter (file upload and new version) is planned in release 0.4.0, tracked in [issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9). Until that adapter lands, do not promise a working WorkDrive upload. Resolve the target folder through MCP, then either wait for the adapter or perform a direct REST `multipart/form-data` upload and verify it by re-listing the folder.
+Status: the bridge ships a WorkDrive adapter since release 0.4.0 ([issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9)). Resolve the destination folder ID here, then hand the bytes over:
+
+```bash
+# New file in a folder
+python3 scripts/zoho_attach.py --app workdrive --target file-upload --id <folder_id> --file <path>
+
+# New version over an existing file of the same name
+python3 scripts/zoho_attach.py --app workdrive --target new-version --id <folder_id> --filename <existing_name> --file <path>
+```
+
+The bridge uploads via `POST /workdrive/api/v1/upload` (multipart field `content`, max 250 MB) and verifies every upload by downloading the file again from the dedicated download host and comparing SHA-256. It exits non-zero unless the bytes are provably there. Its Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ`; a Books- or CRM-only token fails with `F7007 Invalid OAuth scope`.
+
+After an upload, re-list the folder here with `getFolderFiles` to confirm the result in the tree the user sees.
 
 `createNewFile`, `createNativeDocument`, and `importToNative` create or convert Zoho-native documents server-side and do not transfer local bytes, so they are unaffected by this limitation.
 

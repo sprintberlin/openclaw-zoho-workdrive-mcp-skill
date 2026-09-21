@@ -95,7 +95,7 @@ python3 scripts/zoho_attach.py --app workdrive --target new-version --id <folder
 python3 scripts/zoho_download.py --app workdrive --id <resource_id> --out <path>
 ```
 
-The bridge uploads via `POST /workdrive/api/v1/upload` (multipart field `content`, max 250 MB) and verifies every upload by downloading the file again from the dedicated download host and comparing SHA-256. It exits non-zero unless the bytes are provably there. Its Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ`; a Books- or CRM-only token fails with `F7007 Invalid OAuth scope`.
+The bridge uploads via `POST /workdrive/api/v1/upload` (multipart field `content`, max 250 MB) and verifies every upload by downloading the file again from the dedicated download host and comparing SHA-256. It exits non-zero unless the bytes are provably there. Its Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ,ZohoFiles.files.READ`; a Books- or CRM-only token fails with `F7007 Invalid OAuth scope`.
 
 After an upload, re-list the folder here with `getFolderFiles` to confirm the result in the tree the user sees.
 

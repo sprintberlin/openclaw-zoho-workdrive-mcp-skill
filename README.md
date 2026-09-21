@@ -288,7 +288,7 @@ python3 scripts/zoho_attach.py --app workdrive --target new-version --id <folder
 python3 scripts/zoho_download.py --app workdrive --id <resource_id> --out <path>
 ```
 
-For uploads, the bridge posts real `multipart/form-data` to `POST /workdrive/api/v1/upload` with field `content` (max 250 MB), downloads the result again, and exits `0` only after a SHA-256 match. A new version uses the same endpoint with `override-name-exist=true`. For downloads, `zoho_download.py` fetches bytes from `download.zoho.<dc>`, writes atomically, refuses silent overwrite, and prints size plus SHA-256. The Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ` for both directions, or only `WorkDrive.files.READ` for download-only use.
+For uploads, the bridge posts real `multipart/form-data` to `POST /workdrive/api/v1/upload` with field `content` (max 250 MB), downloads the result again, and exits `0` only after a SHA-256 match. A new version uses the same endpoint with `override-name-exist=true`. For downloads, `zoho_download.py` fetches bytes from `download.zoho.<dc>`, writes atomically, refuses silent overwrite, and prints size plus SHA-256. The Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ,ZohoFiles.files.READ` for both directions, or only `WorkDrive.files.READ` for download-only use.
 
 Native document creation tools (`createNewFile`, `createNativeDocument`, `importToNative`) create or convert Zoho Writer/Sheet/Show documents entirely on the server and do not transfer local bytes, so they work over MCP as expected.
 

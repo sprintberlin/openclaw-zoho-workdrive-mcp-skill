@@ -54,7 +54,7 @@ def main(argv=None):
 
     result = call(
         "getFileOrFolderDetails",
-        {"path_variables": {"resourceId": args.resource_id}},
+        {"path_variables": {"resource_id": args.resource_id}},
         timeout=args.timeout,
     )
     if "error" in result:
@@ -67,7 +67,7 @@ def main(argv=None):
     if args.share_links:
         links = call(
             "getFileShareLinks",
-            {"path_variables": {"resourceId": args.resource_id}},
+            {"path_variables": {"resource_id": args.resource_id}},
             timeout=args.timeout,
         )
         if "error" in links:
@@ -78,7 +78,7 @@ def main(argv=None):
     if args.breadcrumbs:
         trail = call(
             "breadcrumbsOfFile",
-            {"path_variables": {"resourceId": args.resource_id}},
+            {"path_variables": {"resource_id": args.resource_id}},
             timeout=args.timeout,
         )
         if "error" in trail:

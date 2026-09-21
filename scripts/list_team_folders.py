@@ -44,7 +44,7 @@ def main(argv=None):
 
     result = paginate(
         "listAllTeamFoldersOfaTeam",
-        {"teamId": args.team_id},
+        path_variables={"team_id": args.team_id},
         page_size=args.page_size,
         max_records=args.limit,
         timeout=args.timeout,

@@ -13,9 +13,9 @@ if str(_SCRIPTS_DIR) not in sys.path:
 from workdrive_client import (  # noqa: E402
     ENDPOINT,
     build_base_parser,
+    call,
     field,
     finish,
-    paginate,
     positive_int,
     rows,
 )
@@ -42,14 +42,14 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     ENDPOINT.configure(args)
 
-    result = paginate(
+    result = call(
         "getFolderFiles",
-        {"folderId": args.folder_id},
-        page_size=args.page_size,
-        max_records=args.limit,
+        {"path_variables": {"folder_id": args.folder_id}},
         timeout=args.timeout,
     )
     records = rows(result) if "error" not in result else []
+    if args.limit is not None:
+        records = records[: args.limit]
 
     if args.json and not args.full:
         records = [

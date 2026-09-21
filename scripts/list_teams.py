@@ -42,11 +42,25 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     ENDPOINT.configure(args)
 
-    payload = {}
-    if args.user_id:
-        payload["path_variables"] = {"userId": args.user_id}
+    user_id = args.user_id
+    if not user_id:
+        current = call("getUserInfo", {}, timeout=args.timeout)
+        if "error" in current:
+            print(f"Error: {current['error']}", file=sys.stderr)
+            return 1
+        user = current.get("data", current)
+        if isinstance(user, dict) and isinstance(user.get("data"), dict):
+            user = user["data"]
+        user_id = field(user, ["id", "zuid"], "") if isinstance(user, dict) else ""
+        if not user_id:
+            print("Error: current WorkDrive user ID is missing", file=sys.stderr)
+            return 1
 
-    result = call("getAllTeamsOfUser", payload, timeout=args.timeout)
+    result = call(
+        "getAllTeamsOfUser",
+        {"path_variables": {"zuid": user_id}},
+        timeout=args.timeout,
+    )
     records = rows(result) if "error" not in result else []
 
     if args.json and not args.full:

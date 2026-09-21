@@ -41,7 +41,7 @@ def main(argv=None):
 
     result = call(
         "getFileShareLinks",
-        {"path_variables": {"resourceId": args.resource_id}},
+        {"path_variables": {"resource_id": args.resource_id}},
         timeout=args.timeout,
     )
     records = rows(result) if "error" not in result else []

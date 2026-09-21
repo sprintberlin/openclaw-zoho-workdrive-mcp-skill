@@ -26,7 +26,28 @@ from mcp_endpoint import (  # noqa: E402
 
 SERVICE = "workdrive"
 ENV_VARS = ("ZOHO_WORKDRIVE_MCP_URL",)
-TOOL_PREFIX = "ZohoWorkDrive_"
+TOOL_PREFIX = "ZohoWorkdrive_"
+
+# The live Zoho MCP server names most tools after the setup-UI Action with
+# spaces replaced by underscores, but some actions keep a different camelCase
+# or Title_Snake name. Map every action used by the bundled helpers to its
+# verified live tool name (confirmed against a live server on 2026-09-21).
+TOOL_ALIASES = {
+    "getUserInfo": "Get_User_Info",
+    "getAllTeamsOfUser": "Get_All_Teams_Of_User",
+    "breadcrumbsOfFile": "Breadcrumbs_Of_File",
+}
+
+
+def runtime_tool(tool):
+    """Resolve a catalog action name to the live MCP tool name."""
+    for prefix in (TOOL_PREFIX, "ZohoWorkDrive_"):
+        if tool.startswith(prefix):
+            tool = tool[len(prefix):]
+            break
+    tool = TOOL_ALIASES.get(tool, tool)
+    return f"{TOOL_PREFIX}{tool}"
+
 
 ENDPOINT = EndpointSelector(SERVICE, ENV_VARS)
 
@@ -64,8 +85,7 @@ def call(tool, args, timeout=30):
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    if not tool.startswith(TOOL_PREFIX):
-        tool = f"{TOOL_PREFIX}{tool}"
+    tool = runtime_tool(tool)
 
     command = [
         "mcporter",
@@ -156,7 +176,16 @@ def field(record, candidates, default="-"):
     return default
 
 
-def paginate(tool, params, page_size=50, max_records=None, timeout=30, offset_key="page[offset]", limit_key="page[limit]"):
+def paginate(
+    tool,
+    path_variables=None,
+    params=None,
+    page_size=50,
+    max_records=None,
+    timeout=30,
+    offset_key="page[offset]",
+    limit_key="page[limit]",
+):
     """Collect records across WorkDrive `page[offset]`/`page[limit]` pagination."""
     collected = []
     offset = 0
@@ -169,11 +198,12 @@ def paginate(tool, params, page_size=50, max_records=None, timeout=30, offset_ke
                 break
             request_limit = min(request_limit, remaining)
 
-        query = dict(params)
-        query[offset_key] = offset
-        query[limit_key] = request_limit
+        query = dict(params or {})
+        query[offset_key] = str(offset)
+        query[limit_key] = str(request_limit)
 
-        result = call(tool, {"query_params": query}, timeout=timeout)
+        payload = {"path_variables": dict(path_variables or {}), "query_params": query}
+        result = call(tool, payload, timeout=timeout)
         if "error" in result:
             return result
 

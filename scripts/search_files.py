@@ -32,7 +32,12 @@ COLUMNS = [
 def build_parser():
     parser = build_base_parser("Search Zoho WorkDrive files and folders.")
     parser.add_argument("query", help="search keyword")
-    parser.add_argument("--team-id", metavar="ID", help="restrict the search to one team")
+    parser.add_argument(
+        "--team-id",
+        metavar="ID",
+        required=True,
+        help="WorkDrive team ID to search",
+    )
     parser.add_argument("--limit", type=positive_int, help="return at most this many results")
     parser.add_argument("--page-size", type=positive_int, default=50, help="page size (default: 50)")
     parser.add_argument("--full", action="store_true", help="with --json, print complete records")
@@ -43,13 +48,10 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     ENDPOINT.configure(args)
 
-    params = {"query": args.query}
-    if args.team_id:
-        params["teamId"] = args.team_id
-
     result = paginate(
         "searchTeamFoldersFiles",
-        params,
+        path_variables={"team_id": args.team_id},
+        params={"search[all]": args.query},
         page_size=args.page_size,
         max_records=args.limit,
         timeout=args.timeout,

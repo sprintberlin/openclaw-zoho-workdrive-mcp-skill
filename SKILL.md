@@ -26,6 +26,7 @@ Treat the endpoint as a credential. Never print it, commit it, or copy it into t
 ```bash
 python3 scripts/lookup_actions.py --profiles
 python3 scripts/lookup_actions.py --profile file-browser --names-only
+python3 scripts/lookup_actions.py --profile team-member --names-only
 python3 scripts/lookup_actions.py --profile content-collaborator --names-only
 python3 scripts/lookup_actions.py --profile workdrive-admin --names-only
 python3 scripts/lookup_actions.py --task file-and-folder-browsing --names-only
@@ -78,6 +79,7 @@ Division of labour:
 | Browse, search, inspect, share, comment, manage folders | this skill (MCP) |
 | Resolve the destination folder or file ID before an upload | this skill (MCP) |
 | Transfer file bytes into WorkDrive | zoho-attachment-bridge |
+| Pull file bytes from WorkDrive into the local workspace | zoho-attachment-bridge (`zoho_download.py`) |
 | Confirm the uploaded file is really there | zoho-attachment-bridge read-back, then re-list with `getFolderFiles` |
 
 Status: the bridge ships a WorkDrive adapter since release 0.4.0 ([issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9)). Resolve the destination folder ID here, then hand the bytes over:
@@ -88,6 +90,9 @@ python3 scripts/zoho_attach.py --app workdrive --target file-upload --id <folder
 
 # New version over an existing file of the same name
 python3 scripts/zoho_attach.py --app workdrive --target new-version --id <folder_id> --filename <existing_name> --file <path>
+
+# Download a file to the local workspace (resource ID resolved through MCP)
+python3 scripts/zoho_download.py --app workdrive --id <resource_id> --out <path>
 ```
 
 The bridge uploads via `POST /workdrive/api/v1/upload` (multipart field `content`, max 250 MB) and verifies every upload by downloading the file again from the dedicated download host and comparing SHA-256. It exits non-zero unless the bytes are provably there. Its Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ`; a Books- or CRM-only token fails with `F7007 Invalid OAuth scope`.
@@ -161,7 +166,7 @@ python3 scripts/list_share_links.py abc123
 
 Every helper accepts `--mcp-url`, `--profile`, `--profiles-file`, `--json`, and `--timeout`. List helpers add `--limit`, `--page-size`, and `--full`. Run any helper with `--help` for its exact options, without configuring credentials. Unknown or incomplete options exit with status 2.
 
-No helper uploads files. Uploads belong to the attachment bridge.
+No helper uploads files. Uploads and downloads belong to the attachment bridge (`zoho_attach.py`, `zoho_download.py`).
 
 ## Role profiles and the 300-Action limit
 
@@ -170,11 +175,13 @@ A Zoho MCP server accepts at most 300 selected Actions per connection. The entir
 | Profile | Actions | Fits one MCP server |
 |---|---|---|
 | `file-browser` | 71 | yes |
-| `content-collaborator` (inherits `file-browser`) | 110 | yes |
+| `team-member` (inherits `file-browser`) | 102 | yes |
+| `content-collaborator` (inherits `team-member`) | 110 | yes |
 | `workdrive-admin` (inherits `content-collaborator`) | 167 | yes |
 
 - **`file-browser`** (71): Read-only navigation, inspection, search, and downloads. No create, update, share, or delete Actions.
-- **`content-collaborator`** (110 resolved): Inherits `file-browser` and adds folder and native document creation, rename/move/copy, trash and restore, comments, labels, favorites, and internal or external sharing.
+- **`team-member`** (102 resolved): Normal employee work. Inherits `file-browser` and adds uploads, folder and native document creation, rename/move/copy, comments, labels, favorites, internal and external sharing, and version restore. No delete capability at all: no dedicated delete Action, no move to trash, and no bundled `updateFilesFolders` Actions that Zoho can use for permanent delete.
+- **`content-collaborator`** (110 resolved): Inherits `team-member` and adds soft deletion: move to trash, bundled file/folder update Actions, and deletion of comments, labels, share links, and share permissions.
 - **`workdrive-admin`** (167 resolved): Inherits `content-collaborator` and adds team folder, team user, group, data template, template library, collection, and workflow administration. Denies permanent deletes, trash purges, and team-member removal.
 
 If a task needs an Action outside a profile, add it deliberately from a task recipe rather than enabling a whole module. The upload Actions are included in the collaborator profile for completeness, but they do not transfer bytes; see [Binary file uploads](#binary-file-uploads).

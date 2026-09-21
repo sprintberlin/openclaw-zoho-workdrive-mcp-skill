@@ -80,9 +80,9 @@
         "zipProgressFile"
       ]
     },
-    "content-collaborator": {
-      "name": "WorkDrive Content Collaborator",
-      "description": "Daily document work on top of read access: upload files and versions, create folders and native documents, rename, move, copy, trash and restore, manage comments, labels, favorites, and internal or external shares. Excludes team, group, data template, template library, and workflow administration.",
+    "team-member": {
+      "name": "WorkDrive Team Member",
+      "description": "Everyday employee access on top of read-only browsing: upload files and new versions, create folders and native documents, rename, move, copy, comment, label, favorite, follow, share internally and externally, and restore earlier versions. No delete Actions: no comment, label, share, permission, or share-link deletion, no move to trash, and no bundled update Actions that can permanently delete files.",
       "extends": "file-browser",
       "actions": [
         "addResourceLabels",
@@ -99,31 +99,38 @@
         "createNativeDocument",
         "createNewFile",
         "createZipFile",
-        "deleteComment",
-        "deleteExternalShareLink",
-        "deleteLabel",
-        "deletePermission",
-        "deleteSharedLink",
         "generateFileSummary",
         "getDTAssocWithFileFolder",
         "importToNative",
         "moveFileOrFolder",
-        "moveToTrash",
         "removeResourceLabels",
         "renameFileOrFolder",
         "restoreToVersion",
         "unZipFile",
         "updateComments",
         "updateExternalShare",
-        "updateFilesFolders",
         "updateFilesFoldersShare",
         "updateFolderCustomization",
         "updateLabels",
-        "updateMultipleFilesFolders",
         "updateMultipleFollowUpdates",
         "uploadFile",
         "uploadNewVersion",
         "uploadStatus"
+      ]
+    },
+    "content-collaborator": {
+      "name": "WorkDrive Content Collaborator",
+      "description": "Full daily document work: inherits the team member profile and additionally moves files or folders to trash, uses bundled file-or-folder update Actions, and deletes comments, labels, external share links, and share permissions. Excludes team, group, data template, template library, and workflow administration.",
+      "extends": "team-member",
+      "actions": [
+        "deleteComment",
+        "deleteExternalShareLink",
+        "deleteLabel",
+        "deletePermission",
+        "deleteSharedLink",
+        "moveToTrash",
+        "updateFilesFolders",
+        "updateMultipleFilesFolders"
       ]
     },
     "workdrive-admin": {

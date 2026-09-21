@@ -52,8 +52,14 @@ getFolderFiles -> uploadFile / uploadNewVersion -> getFileOrFolderDetails
 Treat an empty file response as a failure, never a success, and never claim an upload worked without re-listing the folder. The attachment bridge performs a real REST `multipart/form-data` upload with SHA-256 read-back verification. Its WorkDrive adapter shipped in release 0.4.0 ([issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9)):
 
 ```bash
+# Upload new file
 python3 scripts/zoho_attach.py --app workdrive --target file-upload --id <folder_id> --file <path>
+
+# Upload new version
 python3 scripts/zoho_attach.py --app workdrive --target new-version --id <folder_id> --filename <existing_name> --file <path>
+
+# Download file to local workspace
+python3 scripts/zoho_download.py --app workdrive --id <resource_id> --out <path>
 ```
 
 Use `new-version` instead of a second `file-upload` when the file already exists, so WorkDrive stores a version rather than a timestamped duplicate. Do not fall back to another customer's WorkDrive endpoint.

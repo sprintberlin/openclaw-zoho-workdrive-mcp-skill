@@ -22,7 +22,7 @@ Mitigation: Treat the MCP URL like a password, avoid printing the full value, an
 Risk: Helper scripts pass the credential-bearing MCP endpoint to mcporter, so local process visibility and logs should be treated carefully. <br>
 Mitigation: The scripts call mcporter directly without shell expansion and never print ZOHO_WORKDRIVE_MCP_URL intentionally. Run them only on trusted systems. <br>
 Risk: Read-write Zoho WorkDrive actions can upload files, change shares, and alter team folders if enabled on the MCP server. <br>
-Mitigation: Start with the file-browser profile for lookup work. Keep the content-collaborator profile for document work. Keep the workdrive-admin profile for settings work. Keep permanent delete, trash-empty, and team-member removal Actions disabled unless explicitly required. <br>
+Mitigation: Start with the file-browser profile for lookup work. Use the team-member profile for everyday document work without delete rights. Keep the content-collaborator profile for document work including cleanup. Keep the workdrive-admin profile for settings work. Keep permanent delete, trash-empty, and team-member removal Actions disabled unless explicitly required. <br>
 Risk: Zoho WorkDrive contains customer documents and personal data, including file contents and share links. <br>
 Mitigation: Load only required records and never copy contents into chats, logs, or repositories. <br>
 

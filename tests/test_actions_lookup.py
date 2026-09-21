@@ -99,9 +99,11 @@ class ActionsCatalogAndLookupTests(unittest.TestCase):
         data = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
         profiles = data["profiles"]
         browser = lookup_actions.resolve_profile_actions("file-browser", profiles)
+        member = lookup_actions.resolve_profile_actions("team-member", profiles)
         collaborator = lookup_actions.resolve_profile_actions("content-collaborator", profiles)
         admin = lookup_actions.resolve_profile_actions("workdrive-admin", profiles)
         self.assertEqual(len(browser), 71)
+        self.assertEqual(len(member), 102)
         self.assertEqual(len(collaborator), 110)
         self.assertEqual(len(admin), 167)
         self.assertLessEqual(len(admin), 300)
@@ -128,6 +130,66 @@ class ActionsCatalogAndLookupTests(unittest.TestCase):
         self.assertIn("createExternalShareLink", actions)
         self.assertNotIn("createTeamFolder", actions)
         self.assertNotIn("inviteNewUsers", actions)
+
+    def test_team_member_can_write_but_not_delete(self):
+        data = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
+        profiles = data["profiles"]
+        actions = lookup_actions.resolve_profile_actions("team-member", profiles)
+        for write_action in (
+            "uploadFile",
+            "uploadNewVersion",
+            "createFolder",
+            "createNewFile",
+            "createNativeDocument",
+            "createComments",
+            "updateComments",
+            "renameFileOrFolder",
+            "moveFileOrFolder",
+            "copyFileOrFolder",
+            "createExternalShareLink",
+            "createFilesFoldersShare",
+            "updateFilesFoldersShare",
+            "createLabel",
+            "updateLabels",
+            "restoreToVersion",
+        ):
+            self.assertIn(write_action, actions)
+        for denied in (
+            "deleteComment",
+            "deleteExternalShareLink",
+            "deleteLabel",
+            "deletePermission",
+            "deleteSharedLink",
+            "moveToTrash",
+            "updateFilesFolders",
+            "updateMultipleFilesFolders",
+            "emptyTrash",
+            "emptyMyFolderTrash",
+            "deleteTeamfolder",
+            "deleteVersion",
+        ):
+            self.assertNotIn(denied, actions)
+
+    def test_collaborator_adds_delete_actions_on_top_of_team_member(self):
+        data = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))
+        profiles = data["profiles"]
+        member = lookup_actions.resolve_profile_actions("team-member", profiles)
+        collaborator = lookup_actions.resolve_profile_actions("content-collaborator", profiles)
+        self.assertEqual(
+            sorted(set(collaborator) - set(member)),
+            sorted(
+                [
+                    "deleteComment",
+                    "deleteExternalShareLink",
+                    "deleteLabel",
+                    "deletePermission",
+                    "deleteSharedLink",
+                    "moveToTrash",
+                    "updateFilesFolders",
+                    "updateMultipleFilesFolders",
+                ]
+            ),
+        )
 
     def test_workdrive_admin_denies_destructive_actions(self):
         data = json.loads(PROFILES_PATH.read_text(encoding="utf-8"))

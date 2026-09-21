@@ -9,9 +9,9 @@ This repository contains the public source for the ClawHub skill [`@sprintcx/zoh
 - Agent Skill instructions in `SKILL.md` (portable SKILL.md format)
 - ClawHub release card metadata in `skill-card.md`
 - Ready-to-use Python helpers for teams, team folders, folder contents, file inspection, search, and share links
-- A JSON Action catalog with three least-privilege profiles: **file-browser**, **content-collaborator**, and **workdrive-admin**
+- A JSON Action catalog with four least-privilege profiles: **file-browser**, **team-member**, **content-collaborator**, and **workdrive-admin**
 - Security-conscious `mcporter` calls through `subprocess.run([...])` without shell expansion
-- Explicit pairing with [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) for binary file uploads (MCP cannot upload bytes)
+- Explicit pairing with [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) for verified binary uploads and downloads
 
 ## Requirements
 
@@ -20,7 +20,7 @@ This repository contains the public source for the ClawHub skill [`@sprintcx/zoh
 | Zoho WorkDrive MCP Server | A configured endpoint from [mcp.zoho.eu](https://mcp.zoho.eu) |
 | mcporter | MCP client CLI (bundled with OpenClaw; elsewhere `npm i -g mcporter`) |
 | Endpoint selection | `ZOHO_WORKDRIVE_MCP_URL` for one account; named profiles or `--mcp-url` for multiple accounts |
-| Binary file uploads | [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) — MCP upload actions drop binary bytes; see [Binary file uploads](#binary-file-uploads) |
+| Binary file transfers | [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) — MCP upload actions drop bytes and MCP cannot write downloaded bytes into the local workspace; see [Binary file transfers](#binary-file-transfers) |
 
 ### Single-account setup
 
@@ -203,11 +203,12 @@ python3 scripts/lookup_actions.py --action getFolderFiles
 python3 scripts/lookup_actions.py --validate
 ```
 
-The three roles this skill ships are:
+The four roles this skill ships are:
 
 1. **WorkDrive File Browser** (`file-browser`, 71 Actions): read-only lookup. Browse teams, team folders, My Folders, and folder contents; inspect file metadata, previews, versions, comments, labels, shared links, and collaborators; search and download. No create, update, share, or delete Actions.
-2. **WorkDrive Content Collaborator** (`content-collaborator`, 110 Actions resolved): inherits `file-browser` and adds daily document work covering uploads, folder and native document creation, rename/move/copy, trash and restore, comments, labels, favorites, and internal or external sharing. No team, group, data template, template library, or workflow administration.
-3. **WorkDrive Administrator** (`workdrive-admin`, 167 Actions resolved): inherits `content-collaborator` and adds team folder, team user, group, data template, template library, collection, and workflow administration. All permanent deletes, trash empties, and team-member removal stay denied.
+2. **WorkDrive Team Member** (`team-member`, 102 Actions resolved): inherits `file-browser` and adds everyday employee document work: uploads and new versions, folder and native document creation, rename/move/copy, comments, labels, favorites, internal and external sharing, and version restore. No delete capability at all: no dedicated delete Action, no move to trash, and no bundled `updateFilesFolders` Actions that Zoho can use for permanent delete.
+3. **WorkDrive Content Collaborator** (`content-collaborator`, 110 Actions resolved): inherits `team-member` and adds soft deletion: move to trash, bundled file/folder update Actions, and deletion of comments, labels, share links, and share permissions. No team, group, data template, template library, or workflow administration.
+4. **WorkDrive Administrator** (`workdrive-admin`, 167 Actions resolved): inherits `content-collaborator` and adds team folder, team user, group, data template, template library, collection, and workflow administration. All permanent deletes, trash empties, and team-member removal stay denied.
 
 When a specific job needs an Action outside these profiles, add it from a task recipe instead of enabling a whole module:
 
@@ -257,9 +258,9 @@ WorkDrive resource IDs are opaque. Resolve teams, folders, and files through loo
 
 This is the classic Zoho MCP silent failure. Zoho MCP upload actions (`uploadFile`, `uploadNewVersion`) declare `format: "binary"` but drop the bytes because the server builds no `multipart/form-data` request. Use [zoho-attachment-bridge](https://github.com/sprintberlin/zoho-attachment-bridge) and verify by re-listing the folder.
 
-## Binary file uploads
+## Binary file transfers
 
-Zoho MCP is great for records, navigation, search, sharing, and metadata. **It cannot upload binary files.**
+Zoho MCP is great for records, navigation, search, sharing, and metadata. Use the attachment bridge whenever file bytes must cross between WorkDrive and the local workspace.
 
 When an agent calls `uploadFile` or `uploadNewVersion` over MCP, the MCP server usually returns `"status": "success"` while the folder remains empty. An agent that trusts that response will falsely claim the file was uploaded.
 
@@ -271,16 +272,23 @@ Use the companion skill [zoho-attachment-bridge](https://github.com/sprintberlin
 |---|---|
 | 1. Find the destination team folder or folder ID | `zoho-workdrive-mcp` (this skill) |
 | 2. Upload the local file via REST `multipart/form-data` with SHA-256 read-back | `zoho-attachment-bridge` |
-| 3. Read metadata, create share links, or set labels on the uploaded file | `zoho-workdrive-mcp` (this skill) |
+| 3. Download a WorkDrive file into the local workspace | `zoho-attachment-bridge` |
+| 4. Read metadata, create share links, or set labels | `zoho-workdrive-mcp` (this skill) |
 
 WorkDrive support landed in bridge release 0.4.0 ([issue #9](https://github.com/sprintberlin/zoho-attachment-bridge/issues/9)):
 
 ```bash
+# Upload a new file
 python3 scripts/zoho_attach.py --app workdrive --target file-upload --id <folder_id> --file <path>
+
+# Upload a new version over an existing file
 python3 scripts/zoho_attach.py --app workdrive --target new-version --id <folder_id> --filename <existing_name> --file <path>
+
+# Download a file to the local workspace
+python3 scripts/zoho_download.py --app workdrive --id <resource_id> --out <path>
 ```
 
-The bridge posts a real `multipart/form-data` request to `POST /workdrive/api/v1/upload` with the binary field `content` (max 250 MB), then downloads the file again from the dedicated WorkDrive download host and compares SHA-256 before exiting `0`. A new version is the same endpoint with `override-name-exist=true`. The bridge's Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ`. Confirm the result afterwards by re-listing the folder with `list_folder_files.py`.
+For uploads, the bridge posts real `multipart/form-data` to `POST /workdrive/api/v1/upload` with field `content` (max 250 MB), downloads the result again, and exits `0` only after a SHA-256 match. A new version uses the same endpoint with `override-name-exist=true`. For downloads, `zoho_download.py` fetches bytes from `download.zoho.<dc>`, writes atomically, refuses silent overwrite, and prints size plus SHA-256. The Self Client needs `WorkDrive.files.CREATE,WorkDrive.files.READ` for both directions, or only `WorkDrive.files.READ` for download-only use.
 
 Native document creation tools (`createNewFile`, `createNativeDocument`, `importToNative`) create or convert Zoho Writer/Sheet/Show documents entirely on the server and do not transfer local bytes, so they work over MCP as expected.
 

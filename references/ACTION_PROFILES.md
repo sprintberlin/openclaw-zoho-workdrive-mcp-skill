@@ -11,7 +11,8 @@ A Zoho MCP server accepts at most 300 selected Actions per connection. The entir
 | Profile | Actions | Fits one MCP server |
 |---|---|---|
 | `file-browser` | 71 | yes |
-| `content-collaborator` (inherits `file-browser`) | 110 | yes |
+| `team-member` (inherits `file-browser`) | 102 | yes |
+| `content-collaborator` (inherits `team-member`) | 110 | yes |
 | `workdrive-admin` (inherits `content-collaborator`) | 167 | yes |
 
 Using the smallest matching profile still matters: fewer Actions keep the session tool catalog small, save context tokens, and enforce least privilege. When a specific job needs an Action outside your profile, add it deliberately from a task recipe instead of enabling everything.
@@ -26,11 +27,13 @@ python3 scripts/lookup_actions.py --profiles
 
 # Inspect actions in a profile (including inherited actions)
 python3 scripts/lookup_actions.py --profile file-browser
+python3 scripts/lookup_actions.py --profile team-member
 python3 scripts/lookup_actions.py --profile content-collaborator
 python3 scripts/lookup_actions.py --profile workdrive-admin
 
 # Get copy-ready action names only (one per line)
 python3 scripts/lookup_actions.py --profile file-browser --names-only
+python3 scripts/lookup_actions.py --profile team-member --names-only
 python3 scripts/lookup_actions.py --profile content-collaborator --names-only
 python3 scripts/lookup_actions.py --profile workdrive-admin --names-only
 ```
@@ -40,13 +43,19 @@ python3 scripts/lookup_actions.py --profile workdrive-admin --names-only
 - **Allowed:** Browse teams, team folders, My Folders, and folder contents (`getAllTeamsOfUser`, `listAllTeamFoldersOfaTeam`, `getTeamFoldersInfo`, `getFolderFiles`, `getFileList`, `subFolders`, `getmyfolderid`, `myFolderFiles`); inspect file details, previews, statistics, and versions (`getFileOrFolderDetails`, `getFilePreview`, `getFileStatistics`, `getVersion`); search across teams and folders (`searchTeamFoldersFiles`, `searchRecords`); read comments, labels, favorites, shared links, and collaborators (`getComments`, `getLabels`, `getSharedLinks`, `getSharedUsers`, `getUserCollaborators`); ask Zia contextual questions about indexed files (`fileQuery`); download files and ZIP packages.
 - **Excluded:** Every create, upload, update, share, and delete Action. An agent with this profile cannot modify any file or workspace state.
 
-### 2. WorkDrive Content Collaborator (`content-collaborator`) - 110 Actions resolved
-- **Inherits:** `file-browser` (71) and adds 39 content and collaboration Actions.
-- **Focus:** Daily document work on top of full read capability.
-- **Allowed:** Upload files and new versions (`uploadFile`, `uploadNewVersion`); create folders, link files, and native Zoho Writer/Sheet/Show documents (`createFolder`, `createCustomizedFolder`, `createLinkFile`, `createNewFile`, `createNativeDocument`, `importToNative`); rename, move, and copy resources (`renameFileOrFolder`, `moveFileOrFolder`, `copyFileOrFolder`, `copyMultipleFilesFolders`); move to trash and restore (`moveToTrash`, `restoreToVersion`, `updateFilesFolders`); manage comments and reviews (`createComments`, `updateComments`, `deleteComment`); organize with labels, favorites, and follow updates (`createLabel`, `updateLabels`, `addResourceLabels`, `removeResourceLabels`, `updateMultipleFollowUpdates`); manage internal and external shares (`createExternalShareLink`, `createExternalShare`, `updateExternalShare`, `deleteExternalShareLink`, `deleteSharedLink`, `createFilesFoldersShare`, `updateFilesFoldersShare`, `deletePermission`); generate AI summaries (`generateFileSummary`).
+### 2. WorkDrive Team Member (`team-member`) - 102 Actions resolved
+- **Inherits:** `file-browser` (71) and adds 31 everyday work Actions.
+- **Focus:** Normal employee document work without any delete capability.
+- **Allowed:** Everything in `file-browser` plus upload files and new versions (`uploadFile`, `uploadNewVersion`); create folders, link files, and native Zoho Writer/Sheet/Show documents (`createFolder`, `createCustomizedFolder`, `createLinkFile`, `createNewFile`, `createNativeDocument`, `importToNative`); rename, move, and copy resources (`renameFileOrFolder`, `moveFileOrFolder`, `copyFileOrFolder`, `copyMultipleFilesFolders`); comment (`createComments`, `updateComments`); labels and favorites (`createLabel`, `updateLabels`, `addResourceLabels`, `removeResourceLabels`, `updateMultipleFollowUpdates`); internal and external sharing (`createExternalShareLink`, `createExternalShare`, `updateExternalShare`, `createFilesFoldersShare`, `updateFilesFoldersShare`); restore earlier versions (`restoreToVersion`); ZIP handling and AI summaries (`createZipFile`, `unZipFile`, `generateFileSummary`); folder customization (`updateFolderCustomization`).
+- **Excluded:** Every dedicated delete Action (`deleteComment`, `deleteLabel`, `deletePermission`, `deleteSharedLink`, `deleteExternalShareLink`), `moveToTrash`, and the bundled `updateFilesFolders` / `updateMultipleFilesFolders` Actions because Zoho bundles permanent delete and trash operations into them. Also excluded: team, group, data template, template library, and workflow administration.
+
+### 3. WorkDrive Content Collaborator (`content-collaborator`) - 110 Actions resolved
+- **Inherits:** `team-member` (102) and adds 8 Actions.
+- **Focus:** Full daily document work including soft deletion, for users who are allowed to clean up.
+- **Allowed:** Everything in `team-member` plus move files or folders to trash (`moveToTrash`), the bundled file/folder update Actions (`updateFilesFolders`, `updateMultipleFilesFolders`), and deletion of comments, labels, external share links, and share permissions (`deleteComment`, `deleteLabel`, `deleteExternalShareLink`, `deleteSharedLink`, `deletePermission`).
 - **Excluded:** Team folder creation, team settings, user invitations, group management, data templates, template libraries, and workflows.
 
-### 3. WorkDrive Administrator (`workdrive-admin`) - 167 Actions resolved
+### 4. WorkDrive Administrator (`workdrive-admin`) - 167 Actions resolved
 - **Inherits:** `content-collaborator` (110) and adds 57 administrative Actions.
 - **Focus:** Full WorkDrive workspace and collaboration administration.
 - **Allowed:** Everything in `content-collaborator` plus team folders and their member/group access (`createTeamFolder`, `updateTeamFolder`, `updateTeamFolderName`, `createTeamFolderMembers`, `updateTeamFolderMember`); team and folder settings (`getTeamSetting`, `updateSettings`, `allowUserDocumentConversion`); invite team members, manage groups and roles (`inviteNewUsers`, `createGroup`, `updateGroups`, `addMemberInGroup`, `updateMemberRole`); create and apply data templates and custom fields (`createDataTemplate`, `updateDatatemplates`, `createCustomField`, `updateCustomField`, `createMultipleCustommetadata`, `updateValuesOfAssociatedFilesFolders`, `disassociateFilesFoldersFromDataTemplate`); administer template libraries and categories (`fetchTeamLibraries`, `createTemplateCategory`, `updateTemplateCategory`, `updateCategory`, `removeTemplateCategory`, `saveResourceAsTemplate`, `updateOrgTemplateAdminRole`); manage external file-request collections (`createCollections`, `updateCollections`, `getListOfAllCollectionLinks`, `getListOfAllCollectionSubmissions`, `getListOfAllTheSubmittedFiles`); supervise and advance workflows (`startWorkflowForAFileFolder`, `getWorkflowInstance`, `performTransitionForAWorkflowInstance`, `abortWorkflowForAFileFolder`).
